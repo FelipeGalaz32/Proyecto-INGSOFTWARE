@@ -12,6 +12,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/planificaciones")
+@CrossOrigin(origins = "http://localhost:5173") // Vital para que React se comunique sin problemas de CORS
 public class PlanificacionController {
 
     @Autowired
@@ -27,22 +28,23 @@ public class PlanificacionController {
         return planificacionService.guardar(planificacion);
     }
 
-    // === NUEVO ENDPOINT PARA LA HU-07: Subir el PDF ===
-    @PostMapping("/subir-documento")
+    // === ENDPOINT PARA LA HU-07: Subir la planificación en PDF ===
+    @PostMapping("/subir")
     public ResponseEntity<String> subirPlanificacionPDF(@RequestParam("archivo") MultipartFile archivo) {
 
         if (archivo.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error: Documento vacío.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Error: No se ha adjuntado ningún documento.");
         }
         if (!"application/pdf".equals(archivo.getContentType())) {
-            return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body("Error: Debe ser PDF.");
+            return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                    .body("Error: El archivo debe ser un formato PDF válido.");
         }
 
         try {
-            // Llamamos al servicio para guardar el archivo físicamente
+            // Guardamos el archivo utilizando el servicio
             String rutaGuardada = planificacionService.guardarArchivo(archivo);
-
-            return ResponseEntity.ok("PDF subido con éxito y guardado en: " + rutaGuardada);
+            return ResponseEntity.ok("PDF subido con éxito y almacenado en: " + rutaGuardada);
 
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
