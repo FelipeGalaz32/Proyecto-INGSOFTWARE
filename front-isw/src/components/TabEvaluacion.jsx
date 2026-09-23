@@ -4,6 +4,17 @@ import { calcularPromedio } from "../utils";
 import ProgressBar from "./ProgressBar";
 
 export default function TabEvaluacion({ rol }) {
+  const [antecedentes, setAntecedentes] = useState({
+    profesorFormacion: "",
+    establecimiento: "",
+    curso: "",
+    fecha: "",
+    horaInicio: "",
+    horaTermino: "",
+    observador: "",
+    objetivoClase: ""
+  });
+
   const [puntajes, setPuntajes] = useState({});
   const [grabando, setGrabando] = useState(false);
   const [transcripcion, setTranscripcion] = useState("");
@@ -12,6 +23,11 @@ export default function TabEvaluacion({ rol }) {
   const [guardada, setGuardada] = useState(false);
   const [publicada, setPublicada] = useState(false);
   const timeoutRef = useRef(null);
+
+  function handleAntecedenteChange(field, value) {
+    setAntecedentes((prev) => ({ ...prev, [field]: value }));
+    setGuardada(false);
+  }
 
   function setPuntaje(clave, valor) {
     setPuntajes((prev) => ({ ...prev, [clave]: valor }));
@@ -29,9 +45,8 @@ export default function TabEvaluacion({ rol }) {
     timeoutRef.current = setTimeout(() => {
       setGrabando(false);
       setTranscripcion(
-        "El tutor destaca el manejo de tiempos durante el desarrollo de la clase y sugiere reforzar " +
-          "las preguntas de cierre para verificar comprensión en todo el curso. Se observa buen vínculo " +
-          "con los estudiantes con mayor dificultad."
+        "Fortalezas: Buen manejo del tiempo e inclusión del trabajo colaborativo en pequeños grupos. " +
+          "Aspectos a mejorar: Reforzar las estrategias de devolución ante errores conceptuales detectados durante el desarrollo."
       );
       setGuardada(false);
     }, 2500);
@@ -40,7 +55,7 @@ export default function TabEvaluacion({ rol }) {
   async function handleGuardar() {
     setLoading(true);
     setMensaje(null);
-    const payload = { puntajes, transcripcion, fecha: new Date().toISOString() };
+    const payload = { antecedentes, puntajes, transcripcion, fecha: new Date().toISOString() };
     try {
       const res = await fetch("http://localhost:3000/api/evaluaciones", {
         method: "POST",
@@ -69,18 +84,20 @@ export default function TabEvaluacion({ rol }) {
     return (
       <section className="panel">
         <div className="card">
-          <h2>Mis resultados de evaluación</h2>
-          <p className="muted">Vista del estudiante: solo disponible una vez publicada por el tutor.</p>
+          <h2>Mis resultados de evaluación de clase</h2>
+          <p className="muted">Vista del estudiante: disponible una vez publicada por el profesor colaborador.</p>
 
           {!publicada ? (
             <p className="empty-state">Aún no hay resultados publicados para tu última clase observada.</p>
           ) : (
             <div className="result-summary">
               <div className="metric-row">
-                <span className="metric-value">{promedio ?? "–"}</span>
-                <ProgressBar value={promedio ? (promedio / 5) * 100 : 0} />
+                <div>
+                  <span className="metric-value">{promedio ?? "–"}</span> / 7.0
+                </div>
+                <ProgressBar value={promedio ? (promedio / 7) * 100 : 0} />
               </div>
-              <h3>Observaciones del tutor</h3>
+              <h3>Observaciones generales y retroalimentación</h3>
               <p>{transcripcion || "Sin observaciones registradas."}</p>
             </div>
           )}
@@ -91,22 +108,107 @@ export default function TabEvaluacion({ rol }) {
 
   return (
     <section className="panel">
+      {/* 1. ANTECEDENTES GENERALES DE LA CLASE */}
       <div className="card">
-        <h2>Evaluación observacional en aula</h2>
+        <h2>Pauta de Evaluación para la Observación de Clase de Matemática</h2>
         <p className="muted">
-          Abre la pauta desde tablet o móvil y califica cada indicador de 1 (inicial) a 5 (destacado).
+          Evaluación de la clase para estudiantes de Pedagogía en Educación Matemática (Escala 1: Muy Bajo a 7: Muy Alto).
         </p>
 
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+          <label className="field">
+            <span>Profesoras/es en Formación:</span>
+            <input
+              type="text"
+              value={antecedentes.profesorFormacion}
+              onChange={(e) => handleAntecedenteChange("profesorFormacion", e.target.value)}
+              placeholder="Nombre de la dupla docente"
+            />
+          </label>
+
+          <label className="field">
+            <span>Establecimiento:</span>
+            <input
+              type="text"
+              value={antecedentes.establecimiento}
+              onChange={(e) => handleAntecedenteChange("establecimiento", e.target.value)}
+              placeholder="Nombre del colegio / escuela"
+            />
+          </label>
+
+          <label className="field">
+            <span>Curso:</span>
+            <input
+              type="text"
+              value={antecedentes.curso}
+              onChange={(e) => handleAntecedenteChange("curso", e.target.value)}
+              placeholder="Ej. 1° Medio A"
+            />
+          </label>
+
+          <label className="field">
+            <span>Fecha:</span>
+            <input
+              type="date"
+              value={antecedentes.fecha}
+              onChange={(e) => handleAntecedenteChange("fecha", e.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>Hora Inicio / Término:</span>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <input
+                type="time"
+                value={antecedentes.horaInicio}
+                onChange={(e) => handleAntecedenteChange("horaInicio", e.target.value)}
+              />
+              <input
+                type="time"
+                value={antecedentes.horaTermino}
+                onChange={(e) => handleAntecedenteChange("horaTermino", e.target.value)}
+              />
+            </div>
+          </label>
+
+          <label className="field">
+            <span>Observador(a):</span>
+            <input
+              type="text"
+              value={antecedentes.observador}
+              onChange={(e) => handleAntecedenteChange("observador", e.target.value)}
+              placeholder="Profesor/a Colaborador/a"
+            />
+          </label>
+        </div>
+
+        <label className="field" style={{ marginTop: "1rem" }}>
+          <span>Objetivo de la Clase:</span>
+          <textarea
+            rows={2}
+            value={antecedentes.objetivoClase}
+            onChange={(e) => handleAntecedenteChange("objetivoClase", e.target.value)}
+            placeholder="Describa el objetivo abordado en la clase observada"
+          />
+        </label>
+      </div>
+
+      {/* 2. MATRIZ DE CRITERIOS (ESCALA 1 A 7) */}
+      <div className="card">
+        <h2>Evaluación de la Observación</h2>
+
         {DIMENSIONES.map((dim) => (
-          <div key={dim.nombre} className="dimension">
-            <h3>{dim.nombre}</h3>
+          <div key={dim.nombre} className="dimension" style={{ marginBottom: "1.5rem" }}>
+            <h3 style={{ textTransform: "uppercase", borderBottom: "1px solid #ccc", paddingBottom: "0.25rem" }}>
+              {dim.nombre}
+            </h3>
             {dim.indicadores.map((ind) => {
               const clave = `${dim.nombre}__${ind}`;
               return (
-                <div className="indicador" key={clave}>
+                <div className="indicador" key={clave} style={{ margin: "0.75rem 0" }}>
                   <span>{ind}</span>
                   <div className="escala">
-                    {[1, 2, 3, 4, 5].map((n) => (
+                    {[1, 2, 3, 4, 5, 6, 7].map((n) => (
                       <button
                         key={n}
                         type="button"
@@ -124,28 +226,30 @@ export default function TabEvaluacion({ rol }) {
         ))}
       </div>
 
+      {/* 3. OBSERVACIONES GENERALES Y TRANSCRIPCIÓN DE VOZ */}
       <div className="card">
-        <h2>Retroalimentación cualitativa</h2>
-        <p className="muted">Registra una nota de voz al finalizar la clase; el sistema la transcribe automáticamente.</p>
+        <h2>Observaciones Generales</h2>
+        <p className="muted">
+          Indique fortalezas, aspectos a mejorar y reflexione sobre las estrategias de trabajo colaborativo implementadas.
+        </p>
 
         <button className={`btn ${grabando ? "btn--recording" : "btn--secondary"}`} onClick={handleGrabar}>
           {grabando ? "● Grabando... (detener)" : "🎙️ Grabar nota de voz"}
         </button>
-        <p className="info-note">Funciona incluso con conexión inestable: se guarda localmente y se sincroniza al recuperar señal.</p>
 
         <label className="field" style={{ marginTop: "1rem" }}>
-          <span>Transcripción automática</span>
+          <span>Observaciones generales / Transcripción</span>
           <textarea
             rows={5}
             value={transcripcion}
             onChange={(e) => { setTranscripcion(e.target.value); setGuardada(false); }}
-            placeholder={grabando ? "Transcribiendo audio..." : "Aquí aparecerá la transcripción de la nota de voz"}
+            placeholder={grabando ? "Transcribiendo audio..." : "Escriba o grabe las fortalezas, aspectos a mejorar y estrategias de trabajo colaborativo..."}
           />
         </label>
 
-        <div className="modal__actions" style={{ justifyContent: "flex-start" }}>
+        <div className="modal__actions" style={{ justifyContent: "flex-start", marginTop: "1rem" }}>
           <button className="btn btn--primary" onClick={handleGuardar} disabled={loading}>
-            {loading ? "Guardando..." : "Guardar evaluación y transcripción"}
+            {loading ? "Guardando..." : "Guardar evaluación"}
           </button>
           <button className="btn btn--success" onClick={handlePublicar} disabled={!guardada || publicada}>
             {publicada ? "✔ Resultados publicados" : "Publicar resultados al estudiante"}

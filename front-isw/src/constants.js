@@ -32,29 +32,40 @@ export const DOCUMENTOS_MOCK = {
 
 export const DIMENSIONES = [
   {
-    nombre: "Estrategia de Enseñanza",
+    nombre: "Aspectos de la estructura de la clase",
     indicadores: [
-      "Claridad de los objetivos de aprendizaje",
-      "Variedad y pertinencia de las estrategias didácticas",
-      "Uso de recursos y materiales de apoyo",
-    ],
+      "1. El objetivo de la clase se presenta a los estudiantes. Es claro y pertinente al nivel.",
+      "2. El profesor/a desarrolla un inicio de la clase generando retroalimentación y/o activación de conocimientos previos.",
+      "3. El profesor/a realiza un desarrollo de la clase de manera pertinente al objetivo planteado.",
+      "4. El profesor/a realiza un desarrollo de la clase con tareas matemáticas pertinentes y coherentes con el objetivo planteado.",
+      "5. El profesor/a realiza un cierre de la clase con actividad(es) clave(s) para la verificación del cumplimiento del objetivo planteado.",
+      "6. El profesor/a realiza un cierre de la clase integrando y/o sintetizando los aprendizajes de la clase."
+    ]
   },
   {
-    nombre: "Gestión del Aula",
+    nombre: "Tareas matemáticas propuestas",
     indicadores: [
-      "Organización del tiempo y transiciones",
-      "Manejo de normas y convivencia",
-      "Ambiente propicio para el aprendizaje",
-    ],
+      "7. El profesor/a hace uso de los errores y dificultades de los estudiantes como una instancia de devolución.",
+      "8. El profesor/a propone tareas matemáticas que se relacionen con alguna de las habilidades de: resolución de problemas, representación, modelación y/o argumentación y comunicación.",
+      "9. Las tareas matemáticas están contextualizadas al entorno de los estudiantes.",
+      "10. El profesor/a propone variadas estrategias de resolución de las tareas matemáticas presentadas.",
+      "11. El profesor/a explica, comprueba y/o demuestra las definiciones, teoremas, proposiciones o procedimientos de manera clara y adecuadas al nivel educativo.",
+      "12. El profesor/a utiliza estrategias de trabajo colaborativo para las/os estudiantes en las actividades de la clase."
+    ]
   },
   {
-    nombre: "Orientación al Estudiante",
+    nombre: "Ambiente de aula y recursos de aprendizaje",
     indicadores: [
-      "Retroalimentación oportuna durante la clase",
-      "Atención a la diversidad e inclusión",
-      "Vínculo pedagógico con el curso",
-    ],
-  },
+      "13. El profesor/a hace uso de un lenguaje acorde al nivel de enseñanza.",
+      "14. El profesor/a genera oportunidades de participación de los estudiantes durante toda la clase.",
+      "15. El profesor/a propicia un ambiente para el desarrollo de toda la clase.",
+      "16. El profesor/a brinda atención a todos los estudiantes del aula.",
+      "17. El profesor/a hace uso de materiales y/o recursos para el desarrollo de los aprendizajes en la clase.",
+      "18. El profesor/a promueve la autoestima, evitando el rechazo, fobia o miedo a la matemática.",
+      "19. El profesor/a promueve el diálogo y comunicación entre estudiantes favoreciendo la inclusión en la clase.",
+      "20. El profesor/a realiza observación sistemática del proceso cognitivo de los estudiantes durante toda la clase."
+    ]
+  }
 ];
 
 export const ELEMENTOS_LABELS = {
