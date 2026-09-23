@@ -25,6 +25,10 @@ public class Planificacion {
     @Column(columnDefinition = "TEXT")
     private String retroalimentacion;
 
+    // === HU- 07===
+    @Column(name = "ruta_documento")
+    private String rutaDocumento;
+
     // Relación N:1 con Estudiante
     @ManyToOne
     @JoinColumn(name = "estudiante_id")

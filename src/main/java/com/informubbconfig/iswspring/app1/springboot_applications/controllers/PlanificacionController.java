@@ -3,7 +3,10 @@ package com.informubbconfig.iswspring.app1.springboot_applications.controllers;
 import com.informubbconfig.iswspring.app1.springboot_applications.models.Planificacion;
 import com.informubbconfig.iswspring.app1.springboot_applications.services.PlanificacionService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -22,6 +25,29 @@ public class PlanificacionController {
     @PostMapping
     public Planificacion guardar(@RequestBody Planificacion planificacion) {
         return planificacionService.guardar(planificacion);
+    }
+
+    // === NUEVO ENDPOINT PARA LA HU-07: Subir el PDF ===
+    @PostMapping("/subir-documento")
+    public ResponseEntity<String> subirPlanificacionPDF(@RequestParam("archivo") MultipartFile archivo) {
+
+        if (archivo.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error: Documento vacío.");
+        }
+        if (!"application/pdf".equals(archivo.getContentType())) {
+            return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body("Error: Debe ser PDF.");
+        }
+
+        try {
+            // Llamamos al servicio para guardar el archivo físicamente
+            String rutaGuardada = planificacionService.guardarArchivo(archivo);
+
+            return ResponseEntity.ok("PDF subido con éxito y guardado en: " + rutaGuardada);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al guardar el archivo: " + e.getMessage());
+        }
     }
 
     @GetMapping("/{id}")

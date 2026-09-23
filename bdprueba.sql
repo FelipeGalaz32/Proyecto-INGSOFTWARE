@@ -21,7 +21,7 @@ SET @@SESSION.SQL_LOG_BIN= 0;
 -- GTID state at the beginning of the backup 
 --
 
-SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ '265612fa-b5e4-11f1-8d51-9c6b0075baba:1-40';
+-- SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ '265612fa-b5e4-11f1-8d51-9c6b0075baba:1-40';
 
 --
 -- Table structure for table `asignaturas_practica`
