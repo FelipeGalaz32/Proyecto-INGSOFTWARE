@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function RegistroUsuario() {
+export default function RegistroUsuario({ onIngresar }) {
   const [esLogin, setEsLogin] = useState(true);
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState(false);
@@ -34,7 +34,12 @@ export default function RegistroUsuario() {
 
       if (data.exito) {
         setError(false);
-        setMensaje(`¡Bienvenido! Inició sesión exitosamente como ${data.rol} (ID: ${data.idUsuario})`);
+        localStorage.setItem('usuario', JSON.stringify(data));
+
+        // Cambiar esta parte:
+        if (onIngresar) {
+          onIngresar(data);
+        }
       } else {
         setError(true);
         setMensaje(data.mensaje || 'Credenciales incorrectas');
@@ -91,7 +96,6 @@ export default function RegistroUsuario() {
           fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
           overflow: 'hidden'
         }}>
-          {/* Encabezado en bloque Azul separado del cuerpo */}
           <div style={{
             backgroundColor: '#25547b',
             padding: '24px 28px',
@@ -118,9 +122,7 @@ export default function RegistroUsuario() {
             </p>
           </div>
 
-          {/* Cuerpo del Formulario */}
           <div style={{ padding: '32px 28px' }}>
-            {/* Mensajes de notificación */}
             {mensaje && (
                 <div style={{
                   padding: '12px 16px',
@@ -136,7 +138,6 @@ export default function RegistroUsuario() {
                 </div>
             )}
 
-            {/* Formulario de Iniciar Sesión */}
             {esLogin ? (
                 <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                   <div>
@@ -218,7 +219,6 @@ export default function RegistroUsuario() {
                   </p>
                 </form>
             ) : (
-                /* Formulario de Registro */
                 <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   <div style={{ display: 'flex', gap: '12px' }}>
                     <div style={{ flex: 1 }}>
