@@ -111,10 +111,10 @@ export default function RegistroUsuario({ onIngresar }) {
               fontWeight: '700',
               letterSpacing: '0.5px'
             }}>
-              SIGPP
+              MD's
             </span>
               <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '700', color: '#ffffff', lineHeight: '1.2' }}>
-                Sistema Integrado de Gestión de Prácticas
+                MateDocs
               </h2>
             </div>
             <p style={{ margin: 0, fontSize: '13px', color: '#cbd5e1' }}>

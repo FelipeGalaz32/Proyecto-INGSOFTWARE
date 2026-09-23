@@ -2,16 +2,36 @@ import { useState, useEffect } from "react";
 import { CICLOS, DOCUMENTOS_MOCK, ESTUDIANTES_MOCK } from "../constants";
 import { estadoAClase } from "../utils";
 
-export default function TabPortafolio({ usuario }) {
-  // Determinar si el usuario logueado es estudiante
-  const esEstudiante = usuario?.rol === "ESTUDIANTE" || usuario?.rol === "Estudiante";
+export default function TabPortafolio({ usuario: usuarioProp }) {
+  // 1. Obtener usuario de props o parsear localStorage
+  const obtenerUsuarioInicial = () => {
+    if (usuarioProp) return usuarioProp;
+    try {
+      const raw = localStorage.getItem("usuario") || localStorage.getItem("user") || "{}";
+      let parsed = JSON.parse(raw);
+      if (typeof parsed === "string") {
+        parsed = JSON.parse(parsed);
+      }
+      return parsed || {};
+    } catch {
+      return {};
+    }
+  };
 
-  // Si es estudiante, buscar su ID en la lista mock (o usar su ID directo del usuario)
+  const usuario = obtenerUsuarioInicial();
+
+  // 2. Validar rol
+  const rolNormalizado = (usuario?.rol || usuario?.role || "").toUpperCase();
+  const esEstudiante = rolNormalizado.includes("ESTUDIANTE");
+
+  // 3. ID inicial
+  const idUsuarioActual = usuario?.idUsuario || usuario?.id;
   const idEstudianteInicial = esEstudiante
-      ? (ESTUDIANTES_MOCK.find((e) => e.nombre === usuario?.nombre || e.id === usuario?.id)?.id || ESTUDIANTES_MOCK[0].id)
-      : ESTUDIANTES_MOCK[0].id;
+      ? (idUsuarioActual || ESTUDIANTES_MOCK[0]?.id || 1)
+      : (ESTUDIANTES_MOCK[0]?.id || 1);
 
   const [estudianteId, setEstudianteId] = useState(idEstudianteInicial);
+  const [datosEstudianteBD, setDatosEstudianteBD] = useState(null);
   const [cicloFiltro, setCicloFiltro] = useState("Todos");
   const [documentosPorEstudiante, setDocumentosPorEstudiante] = useState(DOCUMENTOS_MOCK);
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -19,17 +39,69 @@ export default function TabPortafolio({ usuario }) {
   const [loading, setLoading] = useState(false);
   const [mensaje, setMensaje] = useState(null);
 
-  // Asegurar que si entra o cambia a un estudiante, quede fijado su ID propio
+  // Si entra un estudiante, forzar su propio ID
   useEffect(() => {
-    if (esEstudiante) {
-      const propio = ESTUDIANTES_MOCK.find((e) => e.nombre === usuario?.nombre || e.id === usuario?.id);
-      if (propio) {
-        setEstudianteId(propio.id);
-      }
+    const idReal = usuario?.idUsuario || usuario?.id;
+    if (esEstudiante && idReal) {
+      setEstudianteId(idReal);
     }
   }, [usuario, esEstudiante]);
 
-  const estudiante = ESTUDIANTES_MOCK.find((e) => e.id === estudianteId) || ESTUDIANTES_MOCK[0];
+  // Consulta a la API ÚNICAMENTE si quien navega es un ESTUDIANTE
+  useEffect(() => {
+    if (esEstudiante) {
+      const idReal = usuario?.idUsuario || usuario?.id;
+      if (idReal) {
+        fetch(`http://localhost:8080/api/estudiantes/${idReal}`)
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+              if (data) setDatosEstudianteBD(data);
+            })
+            .catch(() => {});
+      }
+    } else {
+      // Si es docente, anular datos de BD para que mande 100% el desplegable
+      setDatosEstudianteBD(null);
+    }
+  }, [usuario, esEstudiante]);
+
+  // Búsqueda flexible comparando tipos compatibles (evita '1' !== 1)
+  const estudianteMock = ESTUDIANTES_MOCK.find(
+      (e) => String(e.id) === String(estudianteId)
+  );
+
+  // 4. Determinar el nombre visible
+  const obtenerNombreCompleto = () => {
+    // VISTA DOCENTE: Manda siempre el alumno seleccionado en el select
+    if (!esEstudiante) {
+      return estudianteMock?.nombre || "Estudiante seleccionado";
+    }
+
+    // VISTA ESTUDIANTE:
+    if (datosEstudianteBD?.nombre && datosEstudianteBD?.apellido) {
+      return `${datosEstudianteBD.nombre} ${datosEstudianteBD.apellido}`;
+    }
+    if (datosEstudianteBD?.nombre) return datosEstudianteBD.nombre;
+
+    if (usuario?.nombreCompleto) return usuario.nombreCompleto;
+    if (usuario?.nombre) return `${usuario.nombre} ${usuario.apellido || ""}`.trim();
+
+    if (usuario?.email) {
+      const alias = usuario.email.split("@")[0].replace(/[._-]/g, " ");
+      return alias
+          .split(" ")
+          .map((palabra) => palabra.charAt(0).toUpperCase() + palabra.slice(1).toLowerCase())
+          .join(" ");
+    }
+
+    return "Estudiante";
+  };
+
+  const nombreFinal = obtenerNombreCompleto();
+  const carreraFinal = !esEstudiante
+      ? (estudianteMock?.carrera || "Pedagogía en Educación Parvularia")
+      : (datosEstudianteBD?.carrera || usuario?.carrera || "Pedagogía en Educación Parvularia");
+
   const documentos = (documentosPorEstudiante[estudianteId] || []).filter(
       (d) => cicloFiltro === "Todos" || d.ciclo === cicloFiltro
   );
@@ -49,7 +121,7 @@ export default function TabPortafolio({ usuario }) {
       payload.append("descripcion", form.descripcion);
       payload.append("archivo", form.archivo);
 
-      const res = await fetch("http://localhost:3000/api/estudiantes/informes", {
+      const res = await fetch("http://localhost:8080/api/estudiantes/informes", {
         method: "POST",
         body: payload,
       });
@@ -91,11 +163,13 @@ export default function TabPortafolio({ usuario }) {
   return (
       <section className="panel">
         <div className="panel__toolbar">
-          {/* Si es Profesor/Coordinador, muestra el selector de estudiantes. Si es Estudiante, se oculta */}
           {!esEstudiante && (
               <label className="field">
                 <span>Estudiante</span>
-                <select value={estudianteId} onChange={(e) => setEstudianteId(e.target.value)}>
+                <select
+                    value={estudianteId}
+                    onChange={(e) => setEstudianteId(e.target.value)}
+                >
                   {ESTUDIANTES_MOCK.map((e) => (
                       <option key={e.id} value={e.id}>{e.nombre}</option>
                   ))}
@@ -117,8 +191,8 @@ export default function TabPortafolio({ usuario }) {
         </div>
 
         <div className="card">
-          <h2>{estudiante.nombre}</h2>
-          <p className="muted">{estudiante.carrera} · Portafolio único: planificaciones, evaluaciones e informes en un solo lugar</p>
+          <h2>{nombreFinal}</h2>
+          <p className="muted">{carreraFinal} · Portafolio único: planificaciones, evaluaciones e informes en un solo lugar</p>
 
           {documentos.length === 0 ? (
               <p className="empty-state">Aún no hay documentos cargados para este filtro.</p>
@@ -193,4 +267,4 @@ export default function TabPortafolio({ usuario }) {
         )}
       </section>
   );
-} 
+}

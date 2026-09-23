@@ -2,9 +2,9 @@ export default function Header({ usuario, onCerrarSesion }) {
   return (
     <header className="app-header">
       <div className="app-header__title">
-        <span className="app-header__badge">SGPP</span>
+        <span className="app-header__badge">MD's</span>
         <div>
-          <h1>Sistema Integrado de Gestión de Prácticas Pedagógicas</h1>
+          <h1>MateDocs</h1>
           <p>Portafolio único, evaluación digital y planificaciones con retroalimentación</p>
         </div>
       </div>
