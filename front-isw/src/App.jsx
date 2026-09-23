@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
 import { TABS } from "./constants";
 import RegistroUsuario from "./components/RegistroUsuario";
@@ -10,24 +10,46 @@ import TabChatbot from "./components/TabChatbot";
 import TabDashboard from "./components/TabDashboard";
 
 export default function App() {
-  const [usuario, setUsuario] = useState(null);
-  const [tabActiva, setTabActiva] = useState(TABS[0].id);
+    const [usuario, setUsuario] = useState(null);
+    const [tabActiva, setTabActiva] = useState(TABS[0].id);
 
-  if (!usuario) {
-    return <RegistroUsuario onIngresar={setUsuario} />;
-  }
+    // Determinar si el usuario logueado es estudiante
+    const esEstudiante = usuario?.rol === "ESTUDIANTE" || usuario?.rol === "Estudiante";
 
-  return (
-    <div className="app-shell">
-      <Header usuario={usuario} onCerrarSesion={() => setUsuario(null)} />
-      <TabNav tabs={TABS} activa={tabActiva} onChange={setTabActiva} />
+    // Filtrar las pestañas según el rol
+    const tabsDisponibles = TABS.filter((tab) => {
+        if (esEstudiante) {
+            // El estudiante NO puede ver "evaluacion" ni "dashboard"
+            return tab.id !== "evaluacion" && tab.id !== "dashboard";
+        }
+        return true; // Otros roles (profesor, coordinador, etc.) ven todas
+    });
 
-      <main className="app-content">
-        {tabActiva === "portafolio" && <TabPortafolio />}
-        {tabActiva === "evaluacion" && <TabEvaluacion rol={usuario.rol} />}
-        {tabActiva === "chatbot" && <TabChatbot rol={usuario.rol} />}
-        {tabActiva === "dashboard" && <TabDashboard rol={usuario.rol} />}
-      </main>
-    </div>
-  );
+    // Si el usuario cambia o se loguea, asegurar que la pestaña activa sea válida
+    useEffect(() => {
+        if (usuario && tabsDisponibles.length > 0) {
+            const tabEsValida = tabsDisponibles.some((t) => t.id === tabActiva);
+            if (!tabEsValida) {
+                setTabActiva(tabsDisponibles[0].id);
+            }
+        }
+    }, [usuario, tabActiva, tabsDisponibles]);
+
+    if (!usuario) {
+        return <RegistroUsuario onIngresar={setUsuario} />;
+    }
+
+    return (
+        <div className="app-shell">
+            <Header usuario={usuario} onCerrarSesion={() => setUsuario(null)} />
+            <TabNav tabs={tabsDisponibles} activa={tabActiva} onChange={setTabActiva} />
+
+            <main className="app-content">
+                {tabActiva === "portafolio" && <TabPortafolio usuario={usuario} />}
+                {tabActiva === "chatbot" && <TabChatbot rol={usuario.rol} usuario={usuario} />}
+                {!esEstudiante && tabActiva === "evaluacion" && <TabEvaluacion rol={usuario.rol} />}
+                {!esEstudiante && tabActiva === "dashboard" && <TabDashboard rol={usuario.rol} />}
+            </main>
+        </div>
+    );
 }
