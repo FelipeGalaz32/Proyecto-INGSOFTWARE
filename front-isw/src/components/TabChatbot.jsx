@@ -16,10 +16,34 @@ export default function TabChatbot({ rol }) {
   const esRevisor = rol !== "Estudiante";
   const versionActual = versiones[versiones.length - 1] || null;
 
-  function handleArchivo(e) {
+  async function handleArchivo(e) {
     const file = e.target.files[0];
     if (!file) return;
 
+    // --- INICIO CONEXIÓN BACKEND (HU-07) ---
+    const formData = new FormData();
+    formData.append("archivo", file);
+
+    try {
+      // Disparamos la petición al puerto 8080 (Spring Boot)
+      const res = await fetch("http://localhost:8080/api/planificaciones/subir", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        alert("❌ Error: No se pudo subir el archivo al servidor.");
+        return; // Detenemos el flujo si el backend falla
+      }
+      console.log("✅ PDF subido con éxito a Spring Boot");
+    } catch (error) {
+      console.error("Error de red:", error);
+      alert("❌ Error de conexión. Verifica que Spring Boot esté corriendo.");
+      return;
+    }
+    // --- FIN CONEXIÓN BACKEND ---
+
+    // A partir de aquí, mantenemos tu lógica visual original para que el chatbot reaccione:
     const elementos = {
       objetivo: true,
       inicio: true,
