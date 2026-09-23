@@ -1,8 +1,33 @@
-import { useState } from "react";
-import { ELEMENTOS_LABELS, PREGUNTAS_BOT_AVANZADO, PREGUNTAS_BOT_INICIAL } from "../constants";
+import { useState, useEffect, useCallback } from "react";
+import { ELEMENTOS_LABELS, PREGUNTAS_BOT_AVANZADO, PREGUNTAS_BOT_INICIAL, ESTUDIANTES_MOCK } from "../constants";
 import { badgeVersion } from "../utils";
 
 export default function TabChatbot({ rol }) {
+  // 1. Obtener usuario desde localStorage con soporte para strings anidados
+  const obtenerUsuario = () => {
+    try {
+      const raw = localStorage.getItem("usuario") || localStorage.getItem("user") || "{}";
+      let parsed = JSON.parse(raw);
+      if (typeof parsed === "string") {
+        parsed = JSON.parse(parsed);
+      }
+      return parsed || {};
+    } catch {
+      return {};
+    }
+  };
+
+  const usuario = obtenerUsuario();
+  const rolNormalizado = (rol || usuario?.rol || usuario?.role || "").toUpperCase();
+  const esEstudiante = rolNormalizado.includes("ESTUDIANTE");
+  const esRevisor = !esEstudiante;
+
+  // Si es estudiante, usar su ID real; si es docente, usar el estudiante activo del desplegable
+  const idUsuarioActual = usuario?.idUsuario || usuario?.id || 1;
+  const [estudianteSeleccionadoId, setEstudianteSeleccionadoId] = useState(
+      esEstudiante ? idUsuarioActual : (ESTUDIANTES_MOCK[0]?.id || 1)
+  );
+
   const [nivel, setNivel] = useState("Años iniciales");
   const [versiones, setVersiones] = useState([]);
   const [chat, setChat] = useState([]);
@@ -12,66 +37,152 @@ export default function TabChatbot({ rol }) {
   const [claseAutorizada, setClaseAutorizada] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Sincronizar ID si cambia el estudiante en sesión
+  useEffect(() => {
+    if (esEstudiante && idUsuarioActual) {
+      setEstudianteSeleccionadoId(idUsuarioActual);
+    }
+  }, [esEstudiante, idUsuarioActual]);
+
+  // Cargar historial de planificaciones exclusivo del estudiante seleccionado
+  const cargarHistorial = useCallback(async (idEstudiante) => {
+    if (!idEstudiante) return;
+    try {
+      const res = await fetch(`http://localhost:8080/api/planificaciones/estudiante/${idEstudiante}`);
+      if (res.ok) {
+        const data = await res.json();
+        const versionesMapeadas = data.map((item, index) => {
+          // Limpiar rutas de directorios para presentar solo el nombre del PDF
+          const nombreLimpio = item.rutaDocumento
+              ? item.rutaDocumento.split(/[\\/]/).pop()
+              : (item.titulo || `Planificacion_v${index + 1}.pdf`);
+
+          return {
+            id: item.id,
+            numero: index + 1,
+            archivo: nombreLimpio,
+            fecha: item.fecha || new Date().toISOString().slice(0, 10),
+            estado: item.estado || "En revisión",
+            elementos: { objetivo: true, inicio: true, desarrollo: true, cierre: true, recursos: true, inclusionDUA: true },
+            faltantes: []
+          };
+        });
+        setVersiones(versionesMapeadas);
+      } else {
+        setVersiones([]);
+      }
+    } catch (err) {
+      console.error("Error al cargar planificaciones del estudiante:", err);
+      setVersiones([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarHistorial(estudianteSeleccionadoId);
+  }, [estudianteSeleccionadoId, cargarHistorial]);
+
   const preguntas = nivel === "Años iniciales" ? PREGUNTAS_BOT_INICIAL : PREGUNTAS_BOT_AVANZADO;
-  const esRevisor = rol !== "Estudiante";
   const versionActual = versiones[versiones.length - 1] || null;
 
+  // Subir borrador inicial o nueva versión
   async function handleArchivo(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // --- INICIO CONEXIÓN BACKEND (HU-07) ---
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      alert("❌ Solo se admiten archivos en formato PDF.");
+      e.target.value = "";
+      return;
+    }
+
     const formData = new FormData();
     formData.append("archivo", file);
 
     try {
-      // Disparamos la petición al puerto 8080 (Spring Boot)
-      const res = await fetch("http://localhost:8080/api/planificaciones/subir", {
+      const res = await fetch(`http://localhost:8080/api/planificaciones/subir/${estudianteSeleccionadoId}`, {
         method: "POST",
         body: formData,
       });
 
-      if (!res.ok) {
-        alert("❌ Error: No se pudo subir el archivo al servidor.");
-        return; // Detenemos el flujo si el backend falla
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || (data && !data.exito)) {
+        const faltantes = data?.elementosFaltantes || [];
+        if (faltantes.length > 0) {
+          alert(`❌ Documento rechazado. No se subió a la plataforma porque le faltan las siguientes secciones:\n• ${faltantes.join("\n• ")}`);
+        } else {
+          alert(`❌ ${data?.mensaje || "El archivo está vacío o no corresponde a una planificación válida."}`);
+        }
+        e.target.value = "";
+        return;
       }
-      console.log("✅ PDF subido con éxito a Spring Boot");
-    } catch (error) {
-      console.error("Error de red:", error);
-      alert("❌ Error de conexión. Verifica que Spring Boot esté corriendo.");
-      return;
-    }
-    // --- FIN CONEXIÓN BACKEND ---
 
-    // A partir de aquí, mantenemos tu lógica visual original para que el chatbot reaccione:
-    const elementos = {
-      objetivo: true,
-      inicio: true,
-      desarrollo: true,
-      cierre: true,
-      recursos: true,
-      inclusionDUA: true,
-    };
-    const faltantes = Object.entries(elementos).filter(([, ok]) => !ok).map(([k]) => ELEMENTOS_LABELS[k]);
+      alert("✅ Planificación validada y subida exitosamente.");
+      e.target.value = "";
+      await cargarHistorial(estudianteSeleccionadoId);
 
-    const nuevaVersion = {
-      numero: versiones.length + 1,
-      archivo: file.name,
-      fecha: new Date().toISOString().slice(0, 10),
-      elementos,
-      faltantes,
-      estado: faltantes.length > 0 ? "Rechazada" : "En diálogo reflexivo",
-    };
-
-    setVersiones((prev) => [...prev, nuevaVersion]);
-    setComentarioDocente("");
-    setClaseAutorizada(false);
-
-    if (faltantes.length === 0) {
       setChat([{ from: "bot", texto: preguntas[0] }]);
       setPreguntaIndex(0);
-    } else {
-      setChat([]);
+      setComentarioDocente("");
+      setClaseAutorizada(false);
+
+    } catch (error) {
+      console.error("Error de conexión:", error);
+      alert("❌ Error al conectar con el servidor. Verifica que Spring Boot esté en ejecución.");
+      e.target.value = "";
+    }
+  }
+
+  // Reemplazar versión existente: sube el nuevo PDF y elimina la versión sustituida
+  async function handleReemplazarVersion(index, e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      alert("❌ Solo se admiten archivos en formato PDF.");
+      e.target.value = "";
+      return;
+    }
+
+    const versionAfectada = versiones[index];
+    const formData = new FormData();
+    formData.append("archivo", file);
+
+    try {
+      // 1. Validar y subir el nuevo documento al backend
+      const res = await fetch(`http://localhost:8080/api/planificaciones/subir/${estudianteSeleccionadoId}`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || (data && !data.exito)) {
+        const faltantes = data?.elementosFaltantes || [];
+        if (faltantes.length > 0) {
+          alert(`❌ No se pudo reemplazar. El nuevo documento carece de las siguientes secciones obligatorias:\n• ${faltantes.join("\n• ")}`);
+        } else {
+          alert(`❌ ${data?.mensaje || "El archivo está vacío o no es una planificación válida."}`);
+        }
+        e.target.value = "";
+        return;
+      }
+
+      // 2. Tras confirmar la subida, eliminar la versión antigua para evitar duplicados
+      if (versionAfectada?.id) {
+        await fetch(`http://localhost:8080/api/planificaciones/${versionAfectada.id}`, {
+          method: "DELETE",
+        });
+      }
+
+      alert(`✅ Versión v${versionAfectada.numero} reemplazada correctamente por "${file.name}".`);
+      e.target.value = "";
+      await cargarHistorial(estudianteSeleccionadoId);
+
+    } catch (error) {
+      console.error("Error al reemplazar el documento:", error);
+      alert("❌ Error de comunicación con el servidor al reemplazar la versión.");
+      e.target.value = "";
     }
   }
 
@@ -125,46 +236,30 @@ export default function TabChatbot({ rol }) {
     actualizarVersionActual({ estado: "Aprobada" });
   }
 
-  async function handleReemplazarVersion(index, e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const formData = new FormData();
-    formData.append("archivo", file);
-
-    try {
-      await fetch("http://localhost:8080/api/planificaciones/subir", {
-        method: "POST",
-        body: formData,
-      });
-      console.log("✅ Versión reemplazada y subida al backend con éxito");
-    } catch (error) {
-      console.error("Error al reemplazar en el servidor:", error);
-    }
-
-    setVersiones((prev) => {
-      const copia = [...prev];
-      copia[index] = {
-        ...copia[index],
-        archivo: file.name,
-        fecha: new Date().toISOString().slice(0, 10),
-        estado: "Actualizado / En revisión"
-      };
-      return copia;
-    });
-  }
-
   function handleSolicitarAjustes() {
     if (!comentarioDocente.trim()) return;
     actualizarVersionActual({ estado: "Ajustes solicitados", comentario: comentarioDocente });
   }
 
-  const puedeSubirNuevaVersion =
-      !versionActual || ["Rechazada", "Ajustes solicitados"].includes(versionActual.estado);
-
   return (
       <section className="panel panel--split">
         <div className="card">
+          {esRevisor && (
+              <div style={{ marginBottom: "16px", paddingBottom: "12px", borderBottom: "1px solid #e2e8f0" }}>
+                <label className="field">
+                  <span>Revisando al estudiante:</span>
+                  <select
+                      value={estudianteSeleccionadoId}
+                      onChange={(e) => setEstudianteSeleccionadoId(e.target.value)}
+                  >
+                    {ESTUDIANTES_MOCK.map((est) => (
+                        <option key={est.id} value={est.id}>{est.nombre}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+          )}
+
           <h2>Configuración de la planificación</h2>
           <label className="field">
             <span>Nivel del estudiante</span>
@@ -181,15 +276,8 @@ export default function TabChatbot({ rol }) {
                     type="file"
                     accept="application/pdf"
                     onChange={handleArchivo}
-                    disabled={!puedeSubirNuevaVersion && versiones.length > 0}
                 />
               </label>
-          )}
-
-          {versionActual?.faltantes.length > 0 && (
-              <div className="inline-alert inline-alert--error">
-                Documento único rechazado automáticamente: faltan {versionActual.faltantes.join(", ")}. Corrige y sube una nueva versión.
-              </div>
           )}
 
           {versionActual?.estado === "Ajustes solicitados" && (
@@ -198,9 +286,9 @@ export default function TabChatbot({ rol }) {
               </div>
           )}
 
-          {versiones.length > 0 && (
+          {versiones.length > 0 ? (
               <div style={{ marginTop: "20px" }}>
-                <h3 style={{ fontSize: "14px", marginBottom: "8px", color: "#334155" }}>Historial de Planificaciones (HU-24)</h3>
+                <h3 style={{ fontSize: "14px", marginBottom: "8px", color: "#334155" }}>Historial de Planificaciones</h3>
                 <table className="table">
                   <thead>
                   <tr>
@@ -213,9 +301,9 @@ export default function TabChatbot({ rol }) {
                   </thead>
                   <tbody>
                   {versiones.map((v, index) => (
-                      <tr key={v.numero}>
+                      <tr key={v.id || index}>
                         <td>v{v.numero}</td>
-                        <td style={{ wordBreak: "break-all", maxWidth: "120px" }}>{v.archivo}</td>
+                        <td style={{ wordBreak: "break-all", maxWidth: "160px" }}>{v.archivo}</td>
                         <td>{v.fecha}</td>
                         <td><span className={`badge badge--${badgeVersion(v.estado)}`}>{v.estado}</span></td>
                         <td>
@@ -234,10 +322,12 @@ export default function TabChatbot({ rol }) {
                   </tbody>
                 </table>
               </div>
+          ) : (
+              <p className="empty-state" style={{ marginTop: "20px" }}>No hay planificaciones registradas para este estudiante.</p>
           )}
 
           {esRevisor && versionActual && versionActual.estado === "En revisión docente" && (
-              <div className="card card--muted">
+              <div className="card card--muted" style={{ marginTop: "16px" }}>
                 <h3>Revisar historial y comparar versiones</h3>
                 <p className="muted">Compara qué sugerencias incorporó el estudiante antes de aprobar.</p>
                 <label className="field">
@@ -254,7 +344,7 @@ export default function TabChatbot({ rol }) {
           )}
 
           {versionActual?.estado === "Aprobada" && !claseAutorizada && (
-              <div className="card card--muted">
+              <div className="card card--muted" style={{ marginTop: "16px" }}>
                 <p className="muted">Planificación aprobada y notificada al estudiante.</p>
                 {!esRevisor && (
                     <button className="btn btn--primary" onClick={() => setClaseAutorizada(true)}>
