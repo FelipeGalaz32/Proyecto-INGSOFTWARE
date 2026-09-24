@@ -1,10 +1,31 @@
-export const ROLES = ["Estudiante", "Profesor Tutor / Asignatura", "Coordinador de Práctica"];
+export const ROLES = [
+  "Estudiante",
+  "Profesor Colaborador",
+  "Profesor Tutor / Asignatura",
+  "Coordinador de Práctica"
+];
 
 export const TABS = [
-  { id: "portafolio", label: "Portafolio del Estudiante" },
-  { id: "evaluacion", label: "Evaluación de Clase" },
-  { id: "chatbot", label: "Planificaciones y Reflexión" },
-  { id: "dashboard", label: "Dashboard CNA" },
+  {
+    id: "portafolio",
+    label: "Portafolio del Estudiante",
+    roles: ["ESTUDIANTE", "PROFESOR_ASIGNATURA", "TUTOR_UNIVERSIDAD", "COORDINADOR_PRACTICA"]
+  },
+  {
+    id: "evaluacion",
+    label: "Evaluación de Clase",
+    roles: ["ESTUDIANTE", "PROFESOR_ASIGNATURA", "TUTOR_UNIVERSIDAD", "COORDINADOR_PRACTICA", "COLABORADOR"]
+  },
+  {
+    id: "chatbot",
+    label: "Planificaciones y Reflexión",
+    roles: ["ESTUDIANTE", "PROFESOR_ASIGNATURA", "TUTOR_UNIVERSIDAD", "COORDINADOR_PRACTICA", "COLABORADOR"]
+  },
+  {
+    id: "dashboard",
+    label: "Dashboard CNA",
+      roles: ["COORDINADOR_PRACTICA"]
+  },
 ];
 
 export const ESTUDIANTES_MOCK = [

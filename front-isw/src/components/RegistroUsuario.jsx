@@ -1,410 +1,354 @@
-import { useState } from 'react';
+// src/components/RegistroUsuario.jsx
+
+import { useState } from "react";
 
 export default function RegistroUsuario({ onIngresar }) {
-  const [esLogin, setEsLogin] = useState(true);
-  const [mensaje, setMensaje] = useState('');
-  const [error, setError] = useState(false);
+  const [nombre, setNombre] = useState("");
+  const [apellido, setApellido] = useState("");
+  const [rut, setRut] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [rol, setRol] = useState("Estudiante");
+  const [colegio, setColegio] = useState("");
+  const [esRegistro, setEsRegistro] = useState(true);
+  const [error, setError] = useState("");
 
-  const [formData, setFormData] = useState({
-    nombre: '',
-    apellido: '',
-    email: '',
-    password: '',
-    rol: 'ESTUDIANTE',
-    rut: ''
-  });
+  const esColaborador =
+      rol.toUpperCase().includes("COLABORADOR") ||
+      rol.toUpperCase().includes("PROFESOR COLABORADOR");
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setMensaje('');
-    try {
-      const response = await fetch('http://localhost:8080/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: formData.email,
-          password: formData.password
-        })
-      });
-      const data = await response.json();
+    setError("");
 
-      if (data.exito) {
-        setError(false);
-        localStorage.setItem('usuario', JSON.stringify(data));
-
-        // Cambiar esta parte:
-        if (onIngresar) {
-          onIngresar(data);
-        }
-      } else {
-        setError(true);
-        setMensaje(data.mensaje || 'Credenciales incorrectas');
-      }
-    } catch (err) {
-      setError(true);
-      setMensaje('Error de conexión con el servidor backend');
+    if (!email || !password) {
+      setError("Por favor completa los campos obligatorios.");
+      return;
     }
-  };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setMensaje('');
+    if (esRegistro && (!nombre || !apellido || !rut)) {
+      setError("Por favor completa todos los campos del registro.");
+      return;
+    }
+
+    if (esRegistro && esColaborador && !colegio.trim()) {
+      setError("El colegio o establecimiento es obligatorio para el Profesor Colaborador.");
+      return;
+    }
+
+    const endpoint = esRegistro
+        ? "http://localhost:8080/api/auth/register"
+        : "http://localhost:8080/api/auth/login";
+
+    const payload = esRegistro
+        ? {
+          nombre,
+          apellido,
+          rut,
+          email,
+          password,
+          rol,
+          colegio: esColaborador ? colegio : null,
+        }
+        : { email, password };
+
     try {
-      const response = await fetch('http://localhost:8080/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      const data = await response.json();
 
-      if (data.exito) {
-        setError(false);
-        setMensaje('¡Registro exitoso! Ya puedes iniciar sesión con tus credenciales.');
-        setEsLogin(true);
+      const data = await res.json();
+
+      if (res.ok && data.exito) {
+        const usuarioSesion = {
+          id: data.idUsuario,
+          nombre: data.nombre || `${nombre} ${apellido}`.trim() || email.split("@")[0],
+          email: data.email || email,
+          rol: data.rol || rol,
+          colegio: data.colegio || (esColaborador ? colegio : null),
+        };
+
+        localStorage.setItem("usuario", JSON.stringify(usuarioSesion));
+        onIngresar(usuarioSesion);
       } else {
-        setError(true);
-        setMensaje(data.mensaje || 'Error al registrar usuario');
+        setError(data.mensaje || "Ocurrió un error al procesar la solicitud.");
       }
     } catch (err) {
-      setError(true);
-      setMensaje('Error de conexión con el servidor backend');
+      console.error("Error en la autenticación:", err);
+      setError("No se pudo conectar con el servidor.");
     }
   };
 
   return (
-      <div style={{
-        minHeight: '100vh',
-        backgroundColor: '#f1f5f9',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-        boxSizing: 'border-box'
-      }}>
-        <div style={{
-          width: '100%',
-          maxWidth: '440px',
-          borderRadius: '12px',
-          backgroundColor: '#ffffff',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 20px rgba(15, 23, 42, 0.08)',
-          color: '#1e293b',
-          fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            backgroundColor: '#25547b',
-            padding: '24px 28px',
-            color: '#ffffff'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-            <span style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.2)',
-              color: '#ffffff',
-              padding: '2px 8px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              fontWeight: '700',
-              letterSpacing: '0.5px'
-            }}>
-              MD's
-            </span>
-              <h2 style={{ margin: 0, fontSize: '17px', fontWeight: '700', color: '#ffffff', lineHeight: '1.2' }}>
-                MateDocs
-              </h2>
+      <div style={styles.container}>
+        <div style={styles.card}>
+          {/* Cabecera Azul */}
+          <div style={styles.header}>
+            <div style={styles.brandGroup}>
+              <span style={styles.badge}>MD's</span>
+              <span style={styles.brandTitle}>MateDocs</span>
             </div>
-            <p style={{ margin: 0, fontSize: '13px', color: '#cbd5e1' }}>
-              {esLogin ? 'Inicie sesión en su cuenta' : 'Cree su cuenta para comenzar'}
+            <p style={styles.headerSubtitle}>
+              {esRegistro
+                  ? "Cree su cuenta para comenzar"
+                  : "Ingrese sus credenciales para acceder"}
             </p>
           </div>
 
-          <div style={{ padding: '32px 28px' }}>
-            {mensaje && (
-                <div style={{
-                  padding: '12px 16px',
-                  marginBottom: '20px',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  lineHeight: '1.4',
-                  backgroundColor: error ? '#fef2f2' : '#f0fdf4',
-                  color: error ? '#991b1b' : '#166534',
-                  border: `1px solid ${error ? '#fecaca' : '#bbf7d0'}`
-                }}>
-                  {mensaje}
-                </div>
-            )}
+          {/* Cuerpo del Formulario */}
+          <div style={styles.body}>
+            {error && <div style={styles.errorBox}>{error}</div>}
 
-            {esLogin ? (
-                <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#334155' }}>
-                      Correo electrónico
-                    </label>
-                    <input
-                        type="email"
-                        name="email"
-                        placeholder="ejemplo@correo.com"
-                        value={formData.email}
-                        onChange={handleChange}
-                        required
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          backgroundColor: '#ffffff',
-                          color: '#1e293b',
-                          fontSize: '14px',
-                          boxSizing: 'border-box',
-                          outline: 'none'
-                        }}
-                    />
-                  </div>
+            <form onSubmit={handleSubmit} style={styles.form}>
+              {esRegistro && (
+                  <>
+                    {/* Fila Nombre y Apellido */}
+                    <div style={styles.row}>
+                      <div style={styles.group}>
+                        <label style={styles.label}>Nombre</label>
+                        <input
+                            type="text"
+                            placeholder="Macarena"
+                            value={nombre}
+                            onChange={(e) => setNombre(e.target.value)}
+                            style={styles.input}
+                            required
+                        />
+                      </div>
+                      <div style={styles.group}>
+                        <label style={styles.label}>Apellido</label>
+                        <input
+                            type="text"
+                            placeholder="Gatica"
+                            value={apellido}
+                            onChange={(e) => setApellido(e.target.value)}
+                            style={styles.input}
+                            required
+                        />
+                      </div>
+                    </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#334155' }}>
-                      Contraseña
-                    </label>
-                    <input
-                        type="password"
-                        name="password"
-                        placeholder="••••••••"
-                        value={formData.password}
-                        onChange={handleChange}
-                        required
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          backgroundColor: '#ffffff',
-                          color: '#1e293b',
-                          fontSize: '14px',
-                          boxSizing: 'border-box',
-                          outline: 'none'
-                        }}
-                    />
-                  </div>
-
-                  <button
-                      type="submit"
-                      style={{
-                        marginTop: '6px',
-                        padding: '12px',
-                        backgroundColor: '#25547b',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontWeight: '600',
-                        fontSize: '15px',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s'
-                      }}
-                  >
-                    Ingresar al Sistema
-                  </button>
-
-                  <p style={{ textAlign: 'center', fontSize: '13px', color: '#64748b', marginTop: '10px', marginBottom: 0 }}>
-                    ¿Aún no tienes cuenta?{' '}
-                    <span
-                        onClick={() => { setEsLogin(false); setMensaje(''); }}
-                        style={{ color: '#25547b', cursor: 'pointer', textDecoration: 'underline', fontWeight: '600' }}
-                    >
-                  Regístrate aquí
-                </span>
-                  </p>
-                </form>
-            ) : (
-                <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#334155' }}>
-                        Nombre
-                      </label>
+                    {/* RUT */}
+                    <div style={styles.group}>
+                      <label style={styles.label}>RUT</label>
                       <input
                           type="text"
-                          name="nombre"
-                          placeholder="Juan"
-                          value={formData.nombre}
-                          onChange={handleChange}
+                          placeholder="11111111-1"
+                          value={rut}
+                          onChange={(e) => setRut(e.target.value)}
+                          style={styles.input}
                           required
-                          style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            backgroundColor: '#ffffff',
-                            color: '#1e293b',
-                            fontSize: '14px',
-                            boxSizing: 'border-box',
-                            outline: 'none'
-                          }}
                       />
                     </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#334155' }}>
-                        Apellido
-                      </label>
-                      <input
-                          type="text"
-                          name="apellido"
-                          placeholder="Pérez"
-                          value={formData.apellido}
-                          onChange={handleChange}
-                          required
-                          style={{
-                            width: '100%',
-                            padding: '10px 12px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            backgroundColor: '#ffffff',
-                            color: '#1e293b',
-                            fontSize: '14px',
-                            boxSizing: 'border-box',
-                            outline: 'none'
-                          }}
-                      />
+                  </>
+              )}
+
+              {/* Correo Electrónico */}
+              <div style={styles.group}>
+                <label style={styles.label}>Correo electrónico</label>
+                <input
+                    type="email"
+                    placeholder="macarena@gmail.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    style={styles.input}
+                    required
+                />
+              </div>
+
+              {/* Contraseña */}
+              <div style={styles.group}>
+                <label style={styles.label}>Contraseña</label>
+                <input
+                    type="password"
+                    placeholder="••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    style={styles.input}
+                    required
+                />
+              </div>
+
+              {/* Campos condicionales para Registro */}
+              {esRegistro && (
+                  <>
+                    <div style={styles.group}>
+                      <label style={styles.label}>Rol de Usuario</label>
+                      <select
+                          value={rol}
+                          onChange={(e) => setRol(e.target.value)}
+                          style={styles.select}
+                      >
+                        <option value="Estudiante">Estudiante</option>
+                        <option value="Profesor de Asignatura">Profesor de Asignatura</option>
+                        <option value="Tutor Universidad">Tutor Universidad</option>
+                        <option value="Coordinador de Práctica">Coordinador de Práctica</option>
+                        <option value="Colaborador">Colaborador</option>
+                      </select>
                     </div>
-                  </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#334155' }}>
-                      RUT
-                    </label>
-                    <input
-                        type="text"
-                        name="rut"
-                        placeholder="12345678-9"
-                        value={formData.rut}
-                        onChange={handleChange}
-                        required
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          backgroundColor: '#ffffff',
-                          color: '#1e293b',
-                          fontSize: '14px',
-                          boxSizing: 'border-box',
-                          outline: 'none'
-                        }}
-                    />
-                  </div>
+                    {/* Campo Colegio sólo si el rol es Colaborador */}
+                    {esColaborador && (
+                        <div style={styles.group}>
+                          <label style={styles.label}>Colegio / Establecimiento</label>
+                          <input
+                              type="text"
+                              placeholder="Ej. Liceo Bicentenario"
+                              value={colegio}
+                              onChange={(e) => setColegio(e.target.value)}
+                              style={styles.input}
+                              required
+                          />
+                        </div>
+                    )}
+                  </>
+              )}
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#334155' }}>
-                      Correo electrónico
-                    </label>
-                    <input
-                        type="email"
-                        name="email"
-                        placeholder="correo@ejemplo.com"
-                        value={formData.email}
-                        onChange={handleChange}
-                        required
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          backgroundColor: '#ffffff',
-                          color: '#1e293b',
-                          fontSize: '14px',
-                          boxSizing: 'border-box',
-                          outline: 'none'
-                        }}
-                    />
-                  </div>
+              <button type="submit" style={styles.submitBtn}>
+                {esRegistro ? "Registrar Usuario" : "Iniciar Sesión"}
+              </button>
+            </form>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#334155' }}>
-                      Contraseña
-                    </label>
-                    <input
-                        type="password"
-                        name="password"
-                        placeholder="••••••••"
-                        value={formData.password}
-                        onChange={handleChange}
-                        required
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          backgroundColor: '#ffffff',
-                          color: '#1e293b',
-                          fontSize: '14px',
-                          boxSizing: 'border-box',
-                          outline: 'none'
-                        }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#334155' }}>
-                      Rol de Usuario
-                    </label>
-                    <select
-                        name="rol"
-                        value={formData.rol}
-                        onChange={handleChange}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          backgroundColor: '#ffffff',
-                          color: '#1e293b',
-                          fontSize: '14px',
-                          boxSizing: 'border-box',
-                          outline: 'none'
-                        }}
-                    >
-                      <option value="ESTUDIANTE">Estudiante</option>
-                      <option value="PROFESOR">Profesor de Asignatura</option>
-                      <option value="TUTOR">Tutor Universidad</option>
-                      <option value="COORDINADOR">Coordinador de Práctica</option>
-                      <option value="COLABORADOR">Colaborador</option>
-                    </select>
-                  </div>
-
-                  <button
-                      type="submit"
-                      style={{
-                        marginTop: '6px',
-                        padding: '12px',
-                        backgroundColor: '#25547b',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontWeight: '600',
-                        fontSize: '15px',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s'
-                      }}
-                  >
-                    Registrar Usuario
-                  </button>
-
-                  <p style={{ textAlign: 'center', fontSize: '13px', color: '#64748b', marginTop: '10px', marginBottom: 0 }}>
-                    ¿Ya tienes una cuenta?{' '}
-                    <span
-                        onClick={() => { setEsLogin(true); setMensaje(''); }}
-                        style={{ color: '#25547b', cursor: 'pointer', textDecoration: 'underline', fontWeight: '600' }}
-                    >
-                  Inicia sesión aquí
-                </span>
-                  </p>
-                </form>
-            )}
+            {/* Cambio de vista Login / Registro */}
+            <div style={styles.footerText}>
+              {esRegistro ? "¿Ya tienes una cuenta? " : "¿No tienes una cuenta? "}
+              <span
+                  onClick={() => {
+                    setEsRegistro(!esRegistro);
+                    setError("");
+                  }}
+                  style={styles.link}
+              >
+              {esRegistro ? "Inicia sesión aquí" : "Regístrate aquí"}
+            </span>
+            </div>
           </div>
         </div>
       </div>
   );
 }
+
+const styles = {
+  container: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "100vh",
+    backgroundColor: "#eef2f6",
+    fontFamily: "system-ui, -apple-system, sans-serif",
+  },
+  card: {
+    width: "100%",
+    maxWidth: "420px",
+    backgroundColor: "#ffffff",
+    borderRadius: "10px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
+    overflow: "hidden",
+  },
+  header: {
+    backgroundColor: "#1d5278",
+    color: "#ffffff",
+    padding: "1.5rem 2rem 1.25rem 2rem",
+  },
+  brandGroup: {
+    display: "flex",
+    alignItems: "center",
+    gap: "0.5rem",
+    marginBottom: "0.4rem",
+  },
+  badge: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    color: "#ffffff",
+    padding: "0.2rem 0.5rem",
+    borderRadius: "4px",
+    fontSize: "0.75rem",
+    fontWeight: "bold",
+  },
+  brandTitle: {
+    fontSize: "1.4rem",
+    fontWeight: "bold",
+    letterSpacing: "-0.02em",
+  },
+  headerSubtitle: {
+    margin: 0,
+    fontSize: "0.85rem",
+    color: "#cbd5e1",
+  },
+  body: {
+    padding: "1.5rem 2rem 2rem 2rem",
+  },
+  errorBox: {
+    backgroundColor: "#fde8e8",
+    color: "#9b1c1c",
+    border: "1px solid #f8b4b4",
+    padding: "0.75rem 1rem",
+    borderRadius: "8px",
+    fontSize: "0.85rem",
+    marginBottom: "1.25rem",
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+  row: {
+    display: "flex",
+    gap: "0.75rem",
+  },
+  group: {
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    gap: "0.35rem",
+  },
+  label: {
+    fontSize: "0.85rem",
+    fontWeight: "600",
+    color: "#334155",
+  },
+  input: {
+    width: "100%",
+    padding: "0.55rem 0.75rem",
+    borderRadius: "6px",
+    border: "1px solid #cbd5e1",
+    fontSize: "0.9rem",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  select: {
+    width: "100%",
+    padding: "0.55rem 0.75rem",
+    borderRadius: "6px",
+    border: "1px solid #cbd5e1",
+    fontSize: "0.9rem",
+    backgroundColor: "#ffffff",
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  submitBtn: {
+    marginTop: "0.5rem",
+    width: "100%",
+    padding: "0.75rem",
+    backgroundColor: "#1d5278",
+    color: "#ffffff",
+    border: "none",
+    borderRadius: "6px",
+    fontSize: "0.95rem",
+    fontWeight: "bold",
+    cursor: "pointer",
+  },
+  footerText: {
+    marginTop: "1.5rem",
+    textAlign: "center",
+    fontSize: "0.85rem",
+    color: "#64748b",
+  },
+  link: {
+    color: "#1d5278",
+    fontWeight: "bold",
+    cursor: "pointer",
+    textDecoration: "underline",
+  },
+};
