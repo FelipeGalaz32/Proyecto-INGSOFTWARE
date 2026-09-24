@@ -4,6 +4,10 @@ import com.informubbconfig.iswspring.app1.springboot_applications.models.Colabor
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface ColaboradorRepository extends JpaRepository<Colaborador, Long> {
+    Optional<Colaborador> findByEmail(String email);
+    Optional<Colaborador> findByRut(String rut);
 }

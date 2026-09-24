@@ -1,13 +1,11 @@
 package com.informubbconfig.iswspring.app1.springboot_applications.models;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Data;
 
+@Data
 @Entity
 @Table(name = "colaboradores")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class Colaborador {
 
     @Id
@@ -16,7 +14,15 @@ public class Colaborador {
 
     private String nombre;
     private String apellido;
+
+    @Column(unique = true, nullable = false)
     private String email;
-    private String contrasena;
+
+    private String password;
+
+    @Column(unique = true, nullable = false)
     private String rut;
+
+    @Column(nullable = true)
+    private String colegio;
 }
