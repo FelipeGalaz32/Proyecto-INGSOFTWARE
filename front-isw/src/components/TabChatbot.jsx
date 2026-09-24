@@ -3,7 +3,7 @@ import { ELEMENTOS_LABELS, PREGUNTAS_BOT_AVANZADO, PREGUNTAS_BOT_INICIAL, ESTUDI
 import { badgeVersion } from "../utils";
 
 export default function TabChatbot({ rol }) {
-  // 1. Obtener usuario desde localStorage con soporte para strings anidados
+  // 1. Obtener usuario desde localStorage
   const obtenerUsuario = () => {
     try {
       const raw = localStorage.getItem("usuario") || localStorage.getItem("user") || "{}";
@@ -22,7 +22,6 @@ export default function TabChatbot({ rol }) {
   const esEstudiante = rolNormalizado.includes("ESTUDIANTE");
   const esRevisor = !esEstudiante;
 
-  // Si es estudiante, usar su ID real; si es docente, usar el estudiante activo del desplegable
   const idUsuarioActual = usuario?.idUsuario || usuario?.id || 1;
   const [estudianteSeleccionadoId, setEstudianteSeleccionadoId] = useState(
       esEstudiante ? idUsuarioActual : (ESTUDIANTES_MOCK[0]?.id || 1)
@@ -37,6 +36,27 @@ export default function TabChatbot({ rol }) {
   const [claseAutorizada, setClaseAutorizada] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Estado para controlar el modal flotante
+  // Estructura: { tipo: 'exito' | 'error' | 'advertencia', titulo: '', mensaje: '', detalles: [] }
+  const [notificacion, setNotificacion] = useState(null);
+
+  const mostrarModal = (tipo, titulo, mensaje, detalles = []) => {
+    setNotificacion({ tipo, titulo, mensaje, detalles });
+  };
+
+  const cerrarModal = () => {
+    setNotificacion(null);
+  };
+
+  // Cerrar también con tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") cerrarModal();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   // Sincronizar ID si cambia el estudiante en sesión
   useEffect(() => {
     if (esEstudiante && idUsuarioActual) {
@@ -44,7 +64,7 @@ export default function TabChatbot({ rol }) {
     }
   }, [esEstudiante, idUsuarioActual]);
 
-  // Cargar historial de planificaciones exclusivo del estudiante seleccionado
+  // Cargar historial de planificaciones
   const cargarHistorial = useCallback(async (idEstudiante) => {
     if (!idEstudiante) return;
     try {
@@ -52,7 +72,6 @@ export default function TabChatbot({ rol }) {
       if (res.ok) {
         const data = await res.json();
         const versionesMapeadas = data.map((item, index) => {
-          // Limpiar rutas de directorios para presentar solo el nombre del PDF
           const nombreLimpio = item.rutaDocumento
               ? item.rutaDocumento.split(/[\\/]/).pop()
               : (item.titulo || `Planificacion_v${index + 1}.pdf`);
@@ -72,7 +91,7 @@ export default function TabChatbot({ rol }) {
         setVersiones([]);
       }
     } catch (err) {
-      console.error("Error al cargar planificaciones del estudiante:", err);
+      console.error("Error al cargar planificaciones:", err);
       setVersiones([]);
     }
   }, []);
@@ -84,13 +103,17 @@ export default function TabChatbot({ rol }) {
   const preguntas = nivel === "Años iniciales" ? PREGUNTAS_BOT_INICIAL : PREGUNTAS_BOT_AVANZADO;
   const versionActual = versiones[versiones.length - 1] || null;
 
-  // Subir borrador inicial o nueva versión
+  // 1. Subida de borrador o nueva versión
   async function handleArchivo(e) {
     const file = e.target.files[0];
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith(".pdf")) {
-      alert("❌ Solo se admiten archivos en formato PDF.");
+      mostrarModal(
+          "error",
+          "Formato incompatible",
+          "Solo se admiten documentos en formato PDF (.pdf)."
+      );
       e.target.value = "";
       return;
     }
@@ -109,15 +132,29 @@ export default function TabChatbot({ rol }) {
       if (!res.ok || (data && !data.exito)) {
         const faltantes = data?.elementosFaltantes || [];
         if (faltantes.length > 0) {
-          alert(`❌ Documento rechazado. No se subió a la plataforma porque le faltan las siguientes secciones:\n• ${faltantes.join("\n• ")}`);
+          const nombresLegibles = faltantes.map((f) => ELEMENTOS_LABELS?.[f] || f);
+          mostrarModal(
+              "advertencia",
+              "Planificación incompleta",
+              "El archivo fue procesado correctamente, pero no cumple con las siguientes secciones obligatorias:",
+              nombresLegibles
+          );
         } else {
-          alert(`❌ ${data?.mensaje || "El archivo está vacío o no corresponde a una planificación válida."}`);
+          mostrarModal(
+              "error",
+              "Validación fallida",
+              data?.mensaje || "El archivo está vacío, dañado o no es una planificación válida."
+          );
         }
         e.target.value = "";
         return;
       }
 
-      alert("✅ Planificación validada y subida exitosamente.");
+      mostrarModal(
+          "exito",
+          "¡Planificación aceptada!",
+          `El documento "${file.name}" superó la validación pedagógica y fue guardado exitosamente.`
+      );
       e.target.value = "";
       await cargarHistorial(estudianteSeleccionadoId);
 
@@ -128,18 +165,26 @@ export default function TabChatbot({ rol }) {
 
     } catch (error) {
       console.error("Error de conexión:", error);
-      alert("❌ Error al conectar con el servidor. Verifica que Spring Boot esté en ejecución.");
+      mostrarModal(
+          "error",
+          "Error de conexión",
+          "No se pudo contactar al servidor backend. Verifica que Spring Boot esté ejecutándose."
+      );
       e.target.value = "";
     }
   }
 
-  // Reemplazar versión existente: sube el nuevo PDF y elimina la versión sustituida
+  // 2. Reemplazar versión existente
   async function handleReemplazarVersion(index, e) {
     const file = e.target.files[0];
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith(".pdf")) {
-      alert("❌ Solo se admiten archivos en formato PDF.");
+      mostrarModal(
+          "error",
+          "Formato incompatible",
+          "Solo se admiten documentos en formato PDF (.pdf)."
+      );
       e.target.value = "";
       return;
     }
@@ -149,7 +194,6 @@ export default function TabChatbot({ rol }) {
     formData.append("archivo", file);
 
     try {
-      // 1. Validar y subir el nuevo documento al backend
       const res = await fetch(`http://localhost:8080/api/planificaciones/subir/${estudianteSeleccionadoId}`, {
         method: "POST",
         body: formData,
@@ -160,28 +204,46 @@ export default function TabChatbot({ rol }) {
       if (!res.ok || (data && !data.exito)) {
         const faltantes = data?.elementosFaltantes || [];
         if (faltantes.length > 0) {
-          alert(`❌ No se pudo reemplazar. El nuevo documento carece de las siguientes secciones obligatorias:\n• ${faltantes.join("\n• ")}`);
+          const nombresLegibles = faltantes.map((f) => ELEMENTOS_LABELS?.[f] || f);
+          mostrarModal(
+              "advertencia",
+              "No se pudo reemplazar",
+              "El nuevo archivo carece de las siguientes secciones pedagógicas obligatorias:",
+              nombresLegibles
+          );
         } else {
-          alert(`❌ ${data?.mensaje || "El archivo está vacío o no es una planificación válida."}`);
+          mostrarModal(
+              "error",
+              "Reemplazo rechazado",
+              data?.mensaje || "El archivo no es válido."
+          );
         }
         e.target.value = "";
         return;
       }
 
-      // 2. Tras confirmar la subida, eliminar la versión antigua para evitar duplicados
+      // Eliminar registro anterior si la subida fue exitosa
       if (versionAfectada?.id) {
         await fetch(`http://localhost:8080/api/planificaciones/${versionAfectada.id}`, {
           method: "DELETE",
         });
       }
 
-      alert(`✅ Versión v${versionAfectada.numero} reemplazada correctamente por "${file.name}".`);
+      mostrarModal(
+          "exito",
+          "Versión reemplazada",
+          `La versión v${versionAfectada.numero} ha sido sustituida exitosamente por "${file.name}".`
+      );
       e.target.value = "";
       await cargarHistorial(estudianteSeleccionadoId);
 
     } catch (error) {
       console.error("Error al reemplazar el documento:", error);
-      alert("❌ Error de comunicación con el servidor al reemplazar la versión.");
+      mostrarModal(
+          "error",
+          "Error de servidor",
+          "Ocurrió un inconveniente al comunicarse con el servidor durante el reemplazo."
+      );
       e.target.value = "";
     }
   }
@@ -240,6 +302,28 @@ export default function TabChatbot({ rol }) {
     if (!comentarioDocente.trim()) return;
     actualizarVersionActual({ estado: "Ajustes solicitados", comentario: comentarioDocente });
   }
+
+  // Definición de colores y estilos según el tipo de alerta
+  const estiloPorTipo = {
+    exito: {
+      colorIcono: "#16a34a",
+      bgIcono: "#dcfce7",
+      icono: "✓",
+      btnColor: "#16a34a",
+    },
+    advertencia: {
+      colorIcono: "#d97706",
+      bgIcono: "#fef3c7",
+      icono: "!",
+      btnColor: "#25547b",
+    },
+    error: {
+      colorIcono: "#dc2626",
+      bgIcono: "#fee2e2",
+      icono: "✕",
+      btnColor: "#dc2626",
+    },
+  }[notificacion?.tipo || "advertencia"];
 
   return (
       <section className="panel panel--split">
@@ -384,6 +468,116 @@ export default function TabChatbot({ rol }) {
             </button>
           </form>
         </div>
+
+        {/* MODAL FLOTANTE MODERNO CON DESENFOQUE DE FONDO */}
+        {notificacion && (
+            <div
+                onClick={cerrarModal}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  backgroundColor: "rgba(15, 23, 42, 0.45)",
+                  backdropFilter: "blur(6px)",
+                  WebkitBackdropFilter: "blur(6px)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 9999,
+                  padding: "20px",
+                  animation: "fadeIn 0.15s ease-out",
+                }}
+            >
+              <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    backgroundColor: "#ffffff",
+                    borderRadius: "16px",
+                    maxWidth: "460px",
+                    width: "100%",
+                    padding: "28px 24px",
+                    boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.25)",
+                    textAlign: "center",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                  }}
+              >
+                {/* Ícono de estado */}
+                <div
+                    style={{
+                      width: "56px",
+                      height: "56px",
+                      borderRadius: "50%",
+                      backgroundColor: estiloPorTipo.bgIcono,
+                      color: estiloPorTipo.colorIcono,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "26px",
+                      fontWeight: "700",
+                      marginBottom: "16px",
+                    }}
+                >
+                  {estiloPorTipo.icono}
+                </div>
+
+                {/* Título */}
+                <h3 style={{ margin: "0 0 8px 0", fontSize: "18px", color: "#1e293b", fontWeight: "700" }}>
+                  {notificacion.titulo}
+                </h3>
+
+                {/* Mensaje explicativo */}
+                <p style={{ margin: "0 0 16px 0", fontSize: "14px", color: "#64748b", lineHeight: "1.5" }}>
+                  {notificacion.mensaje}
+                </p>
+
+                {/* Lista de secciones faltantes (si aplica) */}
+                {notificacion.detalles && notificacion.detalles.length > 0 && (
+                    <div
+                        style={{
+                          width: "100%",
+                          backgroundColor: "#f8fafc",
+                          borderRadius: "10px",
+                          padding: "12px 16px",
+                          marginBottom: "20px",
+                          textAlign: "left",
+                          border: "1px solid #e2e8f0",
+                        }}
+                    >
+                <span style={{ fontSize: "12px", fontWeight: "600", color: "#475569", textTransform: "uppercase" }}>
+                  Secciones requeridas:
+                </span>
+                      <ul style={{ margin: "8px 0 0 0", paddingLeft: "20px", fontSize: "13px", color: "#334155" }}>
+                        {notificacion.detalles.map((item, idx) => (
+                            <li key={idx} style={{ marginBottom: "4px" }}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                )}
+
+                {/* Botón de cierre */}
+                <button
+                    onClick={cerrarModal}
+                    style={{
+                      width: "100%",
+                      padding: "11px 16px",
+                      backgroundColor: estiloPorTipo.btnColor,
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: "8px",
+                      fontWeight: "600",
+                      fontSize: "14px",
+                      cursor: "pointer",
+                      transition: "opacity 0.2s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+                >
+                  Aceptar
+                </button>
+              </div>
+            </div>
+        )}
       </section>
   );
 }
