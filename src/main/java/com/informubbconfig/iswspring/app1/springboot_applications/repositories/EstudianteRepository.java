@@ -4,6 +4,10 @@ import com.informubbconfig.iswspring.app1.springboot_applications.models.Estudia
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface EstudianteRepository extends JpaRepository<Estudiante, Long> {
+    Optional<Estudiante> findByEmail(String email);
+    Optional<Estudiante> findByRut(String rut);
 }

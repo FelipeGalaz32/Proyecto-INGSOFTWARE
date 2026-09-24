@@ -8,6 +8,7 @@ public class RegisterRequest {
     private String apellido;
     private String email;
     private String password;
-    private String rol; // "ESTUDIANTE", "PROFESOR", "TUTOR", "COORDINADOR", "COLABORADOR"
     private String rut;
+    private String rol;
+    private String colegio;
 }
